@@ -251,9 +251,6 @@
                             type="checkbox" id="use-momentum-rule"> Mom Filter</label>
                     <label style="font-size: 0.8rem; color:#9ca3af; display:flex; align-items:center; gap:3px;"><input
                             type="checkbox" id="priority-24-bars"> Force 24 Bars</label>
-                    <label style="font-size: 0.8rem; color:#f59e0b; display:flex; align-items:center; gap:3px;"
-                        title="Use RSI and Stochastic to confirm min/max points"><input type="checkbox"
-                            id="use-rsi-stoch"> RSI/Stoch</label>
                 </div>
 
                 <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
@@ -684,42 +681,7 @@
             </div>
         </div>
     </div>
-    <!-- Indicator Settings Panel (Below Chart) -->
-    <div class="indicators-panel">
-        <div class="indicators-header">
-            <h3>Indicator Parameters</h3>
-        </div>
 
-        <div class="indicators-grid">
-            <!-- Stoch RSI Group -->
-            <div class="indicator-group" style="flex: 2;">
-                <div class="group-title">Stochastic RSI</div>
-                <div class="group-controls">
-                    <div class="control-item">
-                        <label>RSI Len</label>
-                        <input type="number" id="rsi-period" value="14" title="RSI Period">
-                    </div>
-                    <div class="control-item">
-                        <label>Stoch K</label>
-                        <input type="number" id="stoch-k" value="14" title="Stochastic K Period">
-                    </div>
-                    <div class="control-item">
-                        <label>Stoch D</label>
-                        <input type="number" id="stoch-d" value="3" title="Stochastic D Period">
-                    </div>
-                    <div class="control-item">
-                        <label title="Overbought Threshold">OB Level</label>
-                        <input type="number" id="rsi-ob" value="70">
-                    </div>
-                    <div class="control-item">
-                        <label title="Oversold Threshold">OS Level</label>
-                        <input type="number" id="rsi-os" value="30">
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
     <!-- Historical Trades Table -->
     <div class="trades-history-panel">
         <div class="trades-history-header">
@@ -776,6 +738,66 @@
         </div>
     </div>
 
+    <!-- Advanced Cycle Analysis Panel -->
+    <div class="cycle-analysis-panel"
+        style="margin: 1rem; padding: 1rem; background: linear-gradient(135deg, rgba(30,30,45,0.95), rgba(20,20,35,0.95)); border-radius: 12px; border: 1px solid rgba(99,102,241,0.3);">
+        <h3 style="margin: 0 0 1rem 0; color: #a5b4fc; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18" />
+                <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+            </svg>
+            Advanced Cycle Analysis
+        </h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            <!-- MESA Spectrum -->
+            <div
+                style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem;">
+                    <div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
+                    <span style="font-size: 12px; color: #93c5fd; font-weight: 600;">MESA Spectrum (Max Entropy)</span>
+                </div>
+                <div style="font-size: 10px; color: #9ca3af; margin-bottom: 8px;">Dominant cycle via spectral analysis
+                </div>
+                <div id="mesa-result"
+                    style="font-size: 20px; font-weight: bold; color: #3b82f6; font-family: 'Courier New', monospace;">
+                    Calculating...
+                </div>
+                <div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap;" id="mesa-peaks"></div>
+            </div>
+
+            <!-- Hilbert Transform -->
+            <div
+                style="background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem;">
+                    <div style="width: 8px; height: 8px; background: #a855f7; border-radius: 50%;"></div>
+                    <span style="font-size: 12px; color: #d8b4fe; font-weight: 600;">Hilbert Transform</span>
+                </div>
+                <div style="font-size: 10px; color: #9ca3af; margin-bottom: 8px;">Instantaneous cycle period</div>
+                <div id="hilbert-result"
+                    style="font-size: 20px; font-weight: bold; color: #a855f7; font-family: 'Courier New', monospace;">
+                    Calculating...
+                </div>
+            </div>
+
+            <!-- Autocorrelation -->
+            <div
+                style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem;">
+                    <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></div>
+                    <span style="font-size: 12px; color: #6ee7b7; font-weight: 600;">Autocorrelation</span>
+                </div>
+                <div style="font-size: 10px; color: #9ca3af; margin-bottom: 8px;">Periodicity confirmation via lag</div>
+                <div id="autocorr-result"
+                    style="font-size: 20px; font-weight: bold; color: #10b981; font-family: 'Courier New', monospace;">
+                    Calculating...
+                </div>
+                <div id="autocorr-confidence" style="font-size: 11px; color: #6ee7b7; margin-top: 4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="cycle_analysis.js"></script>
     <script src="indicators.js"></script>
     <script src="cycle_detector.js"></script>
     <script src="chart.js"></script>

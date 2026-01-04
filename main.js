@@ -200,10 +200,7 @@ function setupEventListeners() {
         loadChartData();
     });
 
-    // RSI/Stochastic Toggle
-    document.getElementById('use-rsi-stoch').addEventListener('change', () => {
-        loadChartData();
-    });
+
 
     // Custom Cycle Range - ensure visual config updates too
     document.getElementById('custom-min').addEventListener('change', () => {
@@ -255,22 +252,7 @@ function setupEventListeners() {
         loadChartData();
     };
 
-    // Indicator Panel Inputs Listeners
-    const panelInputs = [
-        'rsi-period', 'stoch-k', 'stoch-d', 'rsi-ob', 'rsi-os'
-    ];
-    panelInputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', (e) => { // Changed to 'input' for real-time feedback
-                // Debounce could be added here if performance suffers, but for now direct update
-                console.log(`Input changed: ${id}, New Value: ${e.target.value}`);
-                loadChartData();
-            });
-        } else {
-            // console.warn(`Element with ID ${id} not found!`); // Suppress warning for removed momentum
-        }
-    });
+
 
     // Unified Heatmap Simulation Function - runs all 3 at once
     const runAllHeatmapSimulations = async (triggeredBy) => {
@@ -512,38 +494,7 @@ function recalculateIndicatorsAndCycles(candlesticks) {
     const divergences = cycleMomentum.detectDivergences(momentumValues, highs, lows);
     chart.setDivergences(divergences);
 
-    // Calculate RSI and Stochastic
-    const rsiPeriod = parseInt(document.getElementById('rsi-period').value) || 14;
-    const stochKPeriod = parseInt(document.getElementById('stoch-k').value) || 14;
-    const stochDPeriod = parseInt(document.getElementById('stoch-d').value) || 3;
 
-    const rsiValues = Indicators.calculateRSI(closes, rsiPeriod);
-    const stochastic = Indicators.calculateStochastic(highs, lows, closes, stochKPeriod, stochDPeriod);
-
-    // Pass RSI/Stochastic to chart for visualization
-    chart.setRSI(rsiValues);
-    chart.setStochastic(stochastic.k, stochastic.d);
-
-    // Configure cycle detector with RSI/Stochastic
-    const useRsiStoch = document.getElementById('use-rsi-stoch').checked;
-
-    // Get Thresholds from new panel
-    const rsiOB = parseInt(document.getElementById('rsi-ob').value) || 70;
-    const rsiOS = parseInt(document.getElementById('rsi-os').value) || 30;
-    const stochOB = 70; // Currently not exposed or use rsiOB for simplicity if user didn't ask for differentiation? 
-    // Wait, the panel I built only has "OB Level" and "OS Level" in Stoch RSI Group. 
-    // And user asked for "parametri dell stochastico RSI".
-    // Usually Stoch RSI has overbought/oversold levels.
-    // I made inputs id="rsi-ob" and "rsi-os". I will use these for both RSI and Stoch confirmation thresholds for now to keep it simple as they are usually aligned (70/30 or 80/20).
-    // Or I can update the cycle detector to use them.
-
-    // Let's use the panel values.
-    cycleDetector.setIndicators(rsiValues, stochastic.k, stochastic.d, useRsiStoch, {
-        rsiOB: rsiOB,
-        rsiOS: rsiOS,
-        stochOB: rsiOB, // Use same for Stoch
-        stochOS: rsiOS  // Use same for Stoch
-    });
 
     // Detect Cycles
     const useMomentum = document.getElementById('use-momentum-rule').checked;
@@ -676,8 +627,94 @@ function recalculateIndicatorsAndCycles(candlesticks) {
     updateBotWidget();
     updateFFT(candlesticks);
 
+    // --- Advanced Cycle Analysis ---
+    updateAdvancedCycleAnalysis(candlesticks);
+
     // FORCE RENDER
     chart.render();
+}
+
+/**
+ * Update Advanced Cycle Analysis Panel
+ */
+function updateAdvancedCycleAnalysis(candlesticks) {
+    if (!window.CycleAnalysis || candlesticks.length < 60) return;
+
+    const closes = candlesticks.map(c => c.close);
+
+    // 1. MESA Spectrum
+    try {
+        const mesaPeaks = CycleAnalysis.calculateMESA(closes, 20);
+        const mesaResultEl = document.getElementById('mesa-result');
+        const mesaPeaksEl = document.getElementById('mesa-peaks');
+
+        if (mesaPeaks && mesaPeaks.length > 0) {
+            const dominant = mesaPeaks[0];
+            mesaResultEl.textContent = `${dominant.period.toFixed(1)} Bars`;
+
+            // Show top 3 peaks as badges
+            if (mesaPeaksEl) {
+                mesaPeaksEl.innerHTML = mesaPeaks.slice(0, 3).map((p, i) =>
+                    `<span style="background: rgba(59,130,246,${0.3 - i * 0.1}); padding: 2px 6px; border-radius: 4px; font-size: 10px; color: #93c5fd;">
+                        ${p.period.toFixed(0)}b
+                    </span>`
+                ).join('');
+            }
+        } else {
+            mesaResultEl.textContent = 'No signal';
+            if (mesaPeaksEl) mesaPeaksEl.innerHTML = '';
+        }
+    } catch (e) {
+        console.error('MESA Error:', e);
+    }
+
+    // 2. Hilbert Transform
+    try {
+        const hilbert = CycleAnalysis.calculateHilbert(closes);
+        const hilbertResultEl = document.getElementById('hilbert-result');
+
+        if (hilbert && hilbert.period > 0) {
+            hilbertResultEl.textContent = `${hilbert.period.toFixed(1)} Bars`;
+        } else {
+            hilbertResultEl.textContent = 'Unstable';
+        }
+    } catch (e) {
+        console.error('Hilbert Error:', e);
+    }
+
+    // 3. Autocorrelation
+    try {
+        const correlations = CycleAnalysis.calculateAutocorrelation(closes, 60);
+        const autocorrResultEl = document.getElementById('autocorr-result');
+        const autocorrConfEl = document.getElementById('autocorr-confidence');
+
+        // Find first significant peak after lag 5
+        let bestLag = -1;
+        let maxCorr = -1;
+
+        if (correlations.length > 10) {
+            for (let i = 5; i < correlations.length - 1; i++) {
+                if (correlations[i].correlation > correlations[i - 1].correlation &&
+                    correlations[i].correlation > correlations[i + 1].correlation) {
+                    if (correlations[i].correlation > maxCorr) {
+                        maxCorr = correlations[i].correlation;
+                        bestLag = correlations[i].lag;
+                    }
+                }
+            }
+        }
+
+        if (bestLag > 0) {
+            autocorrResultEl.textContent = `${bestLag} Bars`;
+            const confidence = Math.min(100, Math.abs(maxCorr * 100));
+            autocorrConfEl.textContent = `Confidence: ${confidence.toFixed(0)}%`;
+        } else {
+            autocorrResultEl.textContent = 'No clear cycle';
+            autocorrConfEl.textContent = '';
+        }
+    } catch (e) {
+        console.error('Autocorrelation Error:', e);
+    }
 }
 
 function startWebSocket(symbol, interval) {

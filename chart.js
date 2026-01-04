@@ -62,10 +62,7 @@ class CandlestickChart {
         this.maxDuration = 44; // Default max duration
         this.rangeEndLine = null; // { index: number, maxDuration: number } - vertical line at cycle range end
 
-        // RSI and Stochastic data for visualization
-        this.rsiValues = [];
-        this.stochK = [];
-        this.stochD = [];
+
 
         // Manual Cycle State
         this.manualMode = false;
@@ -87,16 +84,7 @@ class CandlestickChart {
         this.attachEventListeners();
     }
 
-    setRSI(values) {
-        this.rsiValues = values || [];
-        this.render();
-    }
 
-    setStochastic(k, d) {
-        this.stochK = k || [];
-        this.stochD = d || [];
-        this.render();
-    }
 
     addClosureMarkers(markers) {
         markers.forEach(m => this.closureMarkers.set(m.time, m.type));
@@ -198,13 +186,12 @@ class CandlestickChart {
         this.chartWidth = rect.width - this.padding.left - this.padding.right;
         this.chartHeight = rect.height - this.padding.top - this.padding.bottom;
 
-        // Calculate pane heights (65% Main, 17.5% Momentum, 17.5% RSI/Stoch)
+        // Calculate pane heights (Main 75%, Momentum 25%)
         const availableHeight = this.chartHeight - this.layout.gap * 2;
-        this.layout.mainHeight = availableHeight * 0.65;
-        this.layout.momentumHeight = availableHeight * 0.175;
-        this.layout.rsiStochHeight = availableHeight * 0.175;
+        this.layout.mainHeight = availableHeight * 0.75;
+        this.layout.momentumHeight = availableHeight * 0.25;
+        this.layout.rsiStochHeight = 0; // Removed
         this.layout.separatorY = this.padding.top + this.layout.mainHeight + this.layout.gap / 2;
-        this.layout.rsiStochTop = this.layout.separatorY + this.layout.gap / 2 + this.layout.momentumHeight + this.layout.gap / 2;
         // Keep indicatorHeight for backward compatibility
         this.layout.indicatorHeight = this.layout.momentumHeight;
     }
@@ -1267,8 +1254,6 @@ class CandlestickChart {
         const ctx = this.ctx;
         const momentumTop = this.layout.separatorY + this.layout.gap / 2;
         const momentumHeight = this.layout.momentumHeight || this.layout.indicatorHeight;
-        const rsiStochTop = this.layout.rsiStochTop || (momentumTop + momentumHeight + this.layout.gap / 2);
-        const rsiStochHeight = this.layout.rsiStochHeight || momentumHeight;
 
         // ===== MOMENTUM SECTION (Top Indicator Pane) =====
         ctx.fillStyle = this.colors.text;
@@ -1440,143 +1425,7 @@ class CandlestickChart {
             ctx.restore();
         }
 
-        // Draw separator line between momentum and RSI/Stoch
-        ctx.strokeStyle = this.colors.grid;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(this.padding.left, rsiStochTop - this.layout.gap / 4);
-        ctx.lineTo(this.padding.left + this.chartWidth, rsiStochTop - this.layout.gap / 4);
-        ctx.stroke();
 
-        // ===== RSI / STOCHASTIC SECTION (Bottom Indicator Pane) =====
-        if (this.rsiValues.length > 0 || this.stochK.length > 0) {
-            // Labels
-            ctx.fillStyle = '#f59e0b';
-            ctx.font = 'bold 10px Inter';
-            ctx.textAlign = 'left';
-            ctx.fillText('RSI', this.padding.left + 10, rsiStochTop + 12);
-            ctx.fillStyle = '#8b5cf6';
-            ctx.fillText('Stoch', this.padding.left + 40, rsiStochTop + 12);
-
-            // Fixed range for RSI/Stoch: 0-100
-            const rsiRange = { min: 0, max: 100 };
-
-            // Helper to convert RSI/Stoch value to Y coordinate
-            const rsiToY = (value) => {
-                const ratio = (value - rsiRange.min) / (rsiRange.max - rsiRange.min);
-                return rsiStochTop + rsiStochHeight - (ratio * (rsiStochHeight - 15));
-            };
-
-            // Draw horizontal zone lines (30 and 70)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 3]);
-
-            // Oversold line (30)
-            const oversoldY = rsiToY(30);
-            ctx.beginPath();
-            ctx.moveTo(this.padding.left, oversoldY);
-            ctx.lineTo(this.padding.left + this.chartWidth, oversoldY);
-            ctx.stroke();
-
-            // Overbought line (70)
-            const overboughtY = rsiToY(70);
-            ctx.beginPath();
-            ctx.moveTo(this.padding.left, overboughtY);
-            ctx.lineTo(this.padding.left + this.chartWidth, overboughtY);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Zone labels
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.font = '9px Inter';
-            ctx.textAlign = 'right';
-            ctx.fillText('70', this.padding.left + this.chartWidth - 5, overboughtY + 3);
-            ctx.fillText('30', this.padding.left + this.chartWidth - 5, oversoldY + 3);
-
-            // Draw RSI Line (Orange)
-            if (this.rsiValues.length > 0) {
-                ctx.strokeStyle = '#f59e0b';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-
-                let firstPoint = true;
-                this.visibleData.forEach((_, i) => {
-                    const dataIndex = startIndex + i;
-                    if (dataIndex >= this.rsiValues.length) return;
-
-                    const val = this.rsiValues[dataIndex];
-                    if (val === null || isNaN(val)) return;
-
-                    const x = this.padding.left + (i * (candleWidth + candleSpacing)) + this.panOffset % (candleWidth + candleSpacing);
-                    const y = rsiToY(val);
-
-                    if (firstPoint) {
-                        ctx.moveTo(x, y);
-                        firstPoint = false;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                });
-                ctx.stroke();
-            }
-
-            // Draw Stochastic %K Line (Purple)
-            if (this.stochK.length > 0) {
-                ctx.strokeStyle = '#8b5cf6';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-
-                let firstPoint = true;
-                this.visibleData.forEach((_, i) => {
-                    const dataIndex = startIndex + i;
-                    if (dataIndex >= this.stochK.length) return;
-
-                    const val = this.stochK[dataIndex];
-                    if (val === null || isNaN(val)) return;
-
-                    const x = this.padding.left + (i * (candleWidth + candleSpacing)) + this.panOffset % (candleWidth + candleSpacing);
-                    const y = rsiToY(val);
-
-                    if (firstPoint) {
-                        ctx.moveTo(x, y);
-                        firstPoint = false;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                });
-                ctx.stroke();
-            }
-
-            // Draw Stochastic %D Line (Purple, dashed)
-            if (this.stochD.length > 0) {
-                ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([2, 2]);
-                ctx.beginPath();
-
-                let firstPoint = true;
-                this.visibleData.forEach((_, i) => {
-                    const dataIndex = startIndex + i;
-                    if (dataIndex >= this.stochD.length) return;
-
-                    const val = this.stochD[dataIndex];
-                    if (val === null || isNaN(val)) return;
-
-                    const x = this.padding.left + (i * (candleWidth + candleSpacing)) + this.panOffset % (candleWidth + candleSpacing);
-                    const y = rsiToY(val);
-
-                    if (firstPoint) {
-                        ctx.moveTo(x, y);
-                        firstPoint = false;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                });
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-        }
     }
 
     drawCrosshair() {
